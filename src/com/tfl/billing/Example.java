@@ -19,16 +19,20 @@ public class Example {
         travelTracker.connect(paddingtonReader, bakerStreetReader, kingsCrossReader);
 
         paddingtonReader.touch(myCard);
-        minutesPass(5);
+        secondspass(1);
         bakerStreetReader.touch(myCard);
-        minutesPass(15);
+        secondspass(1);
         bakerStreetReader.touch(myCard);
-        minutesPass(10);
+        secondspass(1);
         kingsCrossReader.touch(myCard);
         travelTracker.chargeAccounts();
         }
 
     private static void minutesPass(int n) throws InterruptedException {
         Thread.sleep(n * 60 * 1000);
+    }
+
+    private static void secondspass(int n) throws InterruptedException {
+        Thread.sleep(n*1000);
     }
 }

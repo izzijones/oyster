@@ -10,8 +10,13 @@ import java.util.*;
 
 public class TravelTracker implements ScanListener {
 
-    static final BigDecimal OFF_PEAK_JOURNEY_PRICE = new BigDecimal(2.40);
-    static final BigDecimal PEAK_JOURNEY_PRICE = new BigDecimal(3.20);
+    static final BigDecimal OFF_PEAK_SHORT_JOURNEY_PRICE = new BigDecimal(1.60);
+    static final BigDecimal OFF_PEAK_LONG_JOURNEY_PRICE = new BigDecimal(2.70);
+    static final BigDecimal PEAK_SHORT_JOURNEY_PRICE = new BigDecimal(2.90);
+    static final BigDecimal PEAK_LONG_JOURNEY_PRICE = new BigDecimal(3.80);
+
+    static final BigDecimal OFF_PEAK_CAP = new BigDecimal(7.0);
+    static final BigDecimal PEAK_CAP = new BigDecimal(9.0);
 
     private final List<JourneyEvent> eventLog = new ArrayList<JourneyEvent>();
     private final Set<UUID> currentlyTravelling = new HashSet<UUID>();
@@ -46,13 +51,34 @@ public class TravelTracker implements ScanListener {
             }
         }
 
+        int offPeakCount = 0;
+        int peakCount = 0;
         BigDecimal customerTotal = new BigDecimal(0);
         for (Journey journey : journeys) {
-            BigDecimal journeyPrice = OFF_PEAK_JOURNEY_PRICE;
-            if (peak(journey)) {
-                journeyPrice = PEAK_JOURNEY_PRICE;
+            BigDecimal journeyPrice;
+            if (peak(journey)&&isLong(journey)) {
+                journeyPrice = PEAK_LONG_JOURNEY_PRICE;
+                peakCount++;
+            }
+            else if(peak(journey)&& !isLong(journey)){
+                journeyPrice = PEAK_SHORT_JOURNEY_PRICE;
+                peakCount++;
+            }
+            else if(!peak(journey)&&isLong(journey)){
+                journeyPrice = OFF_PEAK_LONG_JOURNEY_PRICE;
+                offPeakCount++;
+            }
+            else{
+                journeyPrice = OFF_PEAK_SHORT_JOURNEY_PRICE;
+                offPeakCount++;
             }
             customerTotal = customerTotal.add(journeyPrice);
+            if(journeys.size()==offPeakCount && (customerTotal.compareTo(OFF_PEAK_CAP) > 0 )){
+                    customerTotal = OFF_PEAK_CAP;
+            }
+            else if(customerTotal.compareTo(PEAK_CAP)>0){
+                customerTotal = PEAK_CAP;
+            }
         }
 
         PaymentsSystem.getInstance().charge(customer, journeys, roundToNearestPenny(customerTotal));
@@ -73,6 +99,10 @@ public class TravelTracker implements ScanListener {
         return (hour >= 6 && hour <= 9) || (hour >= 17 && hour <= 19);
     }
 
+    private boolean isLong(Journey journey){
+        return (journey.durationSeconds() > 25*60);
+    }
+
     public void connect(OysterCardReader... cardReaders) {
         for (OysterCardReader cardReader : cardReaders) {
             cardReader.register(this);
@@ -84,10 +114,12 @@ public class TravelTracker implements ScanListener {
         if (currentlyTravelling.contains(cardId)) {
             eventLog.add(new JourneyEnd(cardId, readerId));
             currentlyTravelling.remove(cardId);
+            System.out.println("Journey ended for " + cardId.toString());
         } else {
             if (CustomerDatabase.getInstance().isRegisteredId(cardId)) {
                 currentlyTravelling.add(cardId);
                 eventLog.add(new JourneyStart(cardId, readerId));
+                System.out.println("Journey started for "+ cardId.toString());
             } else {
                 throw new UnknownOysterCardException(cardId);
             }
